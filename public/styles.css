@@ -104,7 +104,11 @@ select:hover {
 
 #status {
   color: var(--muted);
-  margin: 0.5rem 0 1rem;
+  margin: 0 0 1rem;
+}
+
+#status[hidden] {
+  display: none;
 }
 
 #grid {
@@ -174,6 +178,58 @@ select:hover {
 .caption .meta {
   font-size: 0.75rem;
   opacity: 0.8;
+}
+
+/* Text posts: same 300px box as a photo, so rows stay even. Everything inside
+   clamps or truncates — nothing here may grow the tile. */
+.tile.text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.9rem;
+}
+
+.tile.text .body {
+  flex: 1;
+  min-height: 0; /* lets the flex child actually shrink and clip */
+  overflow: hidden;
+}
+
+.tile.text .title {
+  margin: 0 0 0.4rem;
+  font-size: 0.95rem;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.tile.text .excerpt {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--muted);
+  white-space: pre-wrap; /* keep the author's line breaks */
+  display: -webkit-box;
+  -webkit-line-clamp: 7;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.tile.text .excerpt.link {
+  color: #d93a00;
+  font-size: 0.78rem;
+}
+
+.tile.text .meta {
+  flex: none;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.tile.text:hover {
+  border-color: var(--muted);
 }
 
 /* Needs height: a zero-height element never intersects. */

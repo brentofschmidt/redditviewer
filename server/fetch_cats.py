@@ -128,7 +128,11 @@ def _smallest_over(variants: list[tuple[int, str]], target: int = TARGET_WIDTH) 
 
 
 def image_url(post: dict) -> str | None:
-    """A display-sized image for a post, or None if it isn't an image post."""
+    """A display-sized image for a post, or None if it hasn't got one.
+
+    Any post carrying a preview qualifies — videos and link posts have
+    thumbnails worth showing. Text posts have none, and render as text tiles.
+    """
     if post.get("is_gallery"):
         # Galleries keep resized copies in media_metadata[id]['p'], source in 's'.
         for item in (post.get("media_metadata") or {}).values():
@@ -138,10 +142,6 @@ def image_url(post: dict) -> str | None:
                 return sized
             if item.get("s", {}).get("u"):
                 return item["s"]["u"]
-        return None
-
-    url = post.get("url_overridden_by_dest") or post.get("url") or ""
-    if not (url.lower().endswith(IMAGE_EXTS) or post.get("post_hint") == "image"):
         return None
 
     # Prefer a resized preview over the full-size original.
@@ -155,10 +155,15 @@ def image_url(post: dict) -> str | None:
         if images[0].get("source", {}).get("url"):
             return images[0]["source"]["url"]
 
-    return url or None
+    url = post.get("url_overridden_by_dest") or post.get("url") or ""
+    return url if url.lower().endswith(IMAGE_EXTS) else None
 
 
-def clean(post: dict, img: str) -> dict:
+# A tile only has room for a few lines; no point shipping a 10k-word post.
+TEXT_PREVIEW_CHARS = 400
+
+
+def clean(post: dict, img: str | None) -> dict:
     return {
         "id": post["id"],
         "title": post["title"],
@@ -170,6 +175,9 @@ def clean(post: dict, img: str) -> dict:
         ).isoformat(),
         "permalink": f"https://www.reddit.com{post['permalink']}",
         "image": img,
+        "text": (post.get("selftext") or "").strip()[:TEXT_PREVIEW_CHARS],
+        "domain": post.get("domain"),
+        "is_self": post.get("is_self", False),
         "nsfw": post.get("over_18", False),
     }
 
@@ -190,12 +198,13 @@ def collect(
 
     out = []
     for p in posts:
-        if not p.get("stickied") and (img := image_url(p)):
-            out.append(clean(p, img))
-            if len(out) == limit:
-                # Stopping early: resume from this post, not from the end of the
-                # batch, or everything after it would be skipped.
-                return out, p["name"]
+        if p.get("stickied"):
+            continue
+        out.append(clean(p, image_url(p)))
+        if len(out) == limit:
+            # Stopping early: resume from this post, not from the end of the
+            # batch, or everything after it would be skipped.
+            return out, p["name"]
     return out, cursor
 
 

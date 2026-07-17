@@ -10,6 +10,8 @@ const end = document.getElementById('end')
 
 // Only these two listings accept a time window; the rest ignore it.
 const TIMED_SORTS = ['top', 'controversial']
+const SORTS = ['hot', 'new', 'top', 'rising', 'controversial']
+const TIMES = ['hour', 'day', 'week', 'month', 'year', 'all']
 
 const TIME_LABEL = {
   hour: 'this hour',
@@ -20,6 +22,11 @@ const TIME_LABEL = {
   all: 'of all time',
 }
 
+// A listing page can legitimately hold no images (a run of text posts), so one
+// empty page is worth skipping past. A whole subreddit of them is not — give up
+// rather than walk the entire listing.
+const MAX_EMPTY_PAGES = 2
+
 const state = {
   sub: 'cats',
   sort: 'new',
@@ -28,6 +35,7 @@ const state = {
   done: false,
   loading: false,
   count: 0,
+  empties: 0, // consecutive pages that yielded no images
   run: 0, // bumped on every reset, so stale responses can be discarded
 }
 
@@ -58,6 +66,84 @@ function describe() {
   return `/r/${state.sub} · ${state.sort}${window}`
 }
 
+// The status line is for problems only — the footer covers loading, and the
+// grid speaks for itself when posts are there.
+function say(message) {
+  status.textContent = message ?? ''
+  status.hidden = !message
+}
+
+// --- routing: /r/<sub>/<sort>?t=<window> ---------------------------------
+
+function readUrl() {
+  const match = location.pathname.match(/^\/r\/([A-Za-z0-9_]{1,50})(?:\/([a-z]+))?\/?$/)
+  const query = new URLSearchParams(location.search)
+  const sort = match?.[2]
+  const time = query.get('t')
+
+  state.sub = match?.[1] ?? 'cats'
+  state.sort = SORTS.includes(sort) ? sort : 'new'
+  state.time = TIMES.includes(time) ? time : 'day'
+
+  // Push the URL's truth into the controls, not the other way round.
+  input.value = state.sub
+  sortSelect.value = state.sort
+  timeSelect.value = state.time
+}
+
+function urlFor() {
+  const query = TIMED_SORTS.includes(state.sort) ? `?t=${state.time}` : ''
+  return `/r/${state.sub}/${state.sort}${query}`
+}
+
+function writeUrl() {
+  const url = urlFor()
+  if (url !== location.pathname + location.search) history.pushState(null, '', url)
+}
+
+function el(tag, className, text) {
+  const node = document.createElement(tag)
+  node.className = className
+  if (text != null) node.textContent = text
+  return node
+}
+
+function meta(post) {
+  return `▲ ${post.score} · ${post.num_comments} comments`
+}
+
+function photoTile(tile, post) {
+  const img = document.createElement('img')
+  // src stays unset until the tile nears the viewport — assigning it starts
+  // the fetch, so it must be the last thing we do.
+  img.dataset.src = post.image
+  img.alt = post.title
+  img.loading = 'lazy'
+  // Decode off the main thread so a big photo can't block scrolling.
+  img.decoding = 'async'
+  // Preview URLs are signed and can expire; drop the tile rather than leave a
+  // broken image in the grid.
+  img.addEventListener('error', () => tile.remove())
+
+  const caption = el('div', 'caption')
+  caption.append(el('span', 'title', post.title), el('span', 'meta', meta(post)))
+
+  tile.append(img, caption)
+  lazy.observe(tile)
+}
+
+function textTile(tile, post) {
+  tile.classList.add('text')
+  const body = el('div', 'body')
+  body.append(el('h3', 'title', post.title))
+
+  // Self posts show their text; link posts have none, so show where they go.
+  if (post.text) body.append(el('p', 'excerpt', post.text))
+  else if (!post.is_self && post.domain) body.append(el('p', 'excerpt link', post.domain))
+
+  tile.append(body, el('div', 'meta', meta(post)))
+}
+
 function render(posts) {
   for (const post of posts) {
     const tile = document.createElement('a')
@@ -66,34 +152,10 @@ function render(posts) {
     tile.target = '_blank'
     tile.rel = 'noopener'
 
-    const img = document.createElement('img')
-    // src stays unset until the tile nears the viewport — assigning it starts
-    // the fetch, so it must be the last thing we do.
-    img.dataset.src = post.image
-    img.alt = post.title
-    img.loading = 'lazy'
-    // Decode off the main thread so a big photo can't block scrolling.
-    img.decoding = 'async'
-    // Preview URLs are signed and can expire; drop the tile rather than leave a
-    // broken image in the grid.
-    img.addEventListener('error', () => tile.remove())
+    if (post.image) photoTile(tile, post)
+    else textTile(tile, post)
 
-    const caption = document.createElement('div')
-    caption.className = 'caption'
-    caption.append(
-      Object.assign(document.createElement('span'), {
-        className: 'title',
-        textContent: post.title,
-      }),
-      Object.assign(document.createElement('span'), {
-        className: 'meta',
-        textContent: `▲ ${post.score} · ${post.num_comments} comments`,
-      }),
-    )
-
-    tile.append(img, caption)
     grid.append(tile)
-    lazy.observe(tile)
   }
 }
 
@@ -111,8 +173,6 @@ async function loadPage() {
   const run = state.run
   const { sub, sort, time, after } = state
 
-  if (!state.count) status.textContent = `Loading ${describe()}…`
-
   try {
     const params = new URLSearchParams({ sub, sort, t: time, limit: 50 })
     if (after) params.set('after', after)
@@ -126,15 +186,16 @@ async function loadPage() {
     render(body.posts)
     state.count += body.posts.length
     state.after = body.after
-    state.done = !body.after
+    state.empties = body.posts.length ? 0 : state.empties + 1
+    // Stop at the end of the listing, or once it's clear there's nothing here.
+    state.done = !body.after || state.empties >= MAX_EMPTY_PAGES
 
-    status.textContent = state.count
-      ? `${state.count} image posts from ${describe()}`
-      : `No image posts in ${describe()}.`
+    say(state.count ? '' : state.done ? `No posts in ${describe()}.` : '')
+    document.title = `${describe()} · redditview`
     // Only worth announcing an end the user can actually reach.
     end.hidden = !(state.done && state.count)
   } catch (err) {
-    status.textContent = `Couldn't load /r/${sub}: ${err.message}`
+    say(`Couldn't load /r/${sub}: ${err.message}`)
     console.error('[redditview] fetch failed:', err)
     state.done = true // stop the observer hammering a failing endpoint
     return
@@ -154,9 +215,11 @@ function reset() {
   state.done = false
   state.loading = false
   state.count = 0
+  state.empties = 0
   lazy.disconnect()
   grid.innerHTML = ''
   end.hidden = true
+  say('')
   timeSelect.hidden = !TIMED_SORTS.includes(state.sort)
   loadPage()
 }
@@ -170,11 +233,13 @@ new IntersectionObserver(
 
 sortSelect.addEventListener('change', () => {
   state.sort = sortSelect.value
+  writeUrl()
   reset()
 })
 
 timeSelect.addEventListener('change', () => {
   state.time = timeSelect.value
+  writeUrl()
   reset()
 })
 
@@ -183,7 +248,18 @@ form.addEventListener('submit', (e) => {
   const sub = input.value.trim().replace(/^\/?r\//, '')
   if (!sub) return
   state.sub = sub
+  writeUrl()
   reset()
 })
 
+// Back/forward: the URL is the source of truth, so re-read and reload.
+addEventListener('popstate', () => {
+  readUrl()
+  reset()
+})
+
+readUrl()
+// Normalise whatever was typed (/, /r/cats, /r/cats/) to the canonical form
+// without adding a history entry.
+history.replaceState(null, '', urlFor())
 reset()

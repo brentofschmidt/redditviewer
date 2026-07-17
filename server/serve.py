@@ -45,6 +45,9 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_response(204)
             self.end_headers()
             return
+        if path.startswith("/r/"):
+            # Client-side route: hand back the page and let app.js read the URL.
+            self.path = "/index.html"
         return super().do_GET()
 
     def end_headers(self):
@@ -67,6 +70,10 @@ class Handler(SimpleHTTPRequestHandler):
         sort = sort if sort in SORTS else "new"
         window = q.get("t", ["day"])[0]
         window = window if window in TIMES else "day"
+        # Reddit ignores `t` for hot/new/rising, so collapse it to one value —
+        # otherwise ?t=day and ?t=all cache the same listing twice and refetch it.
+        if sort not in TIMED_SORTS:
+            window = "day"
         # Reddit fullname, e.g. t3_1uye38f — anything else is dropped.
         after = q.get("after", [""])[0]
         after = after if all(c.isalnum() or c == "_" for c in after) else ""
