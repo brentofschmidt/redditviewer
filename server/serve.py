@@ -1,20 +1,19 @@
-"""Serve the web page and expose /api/posts?sub=cats&limit=50.
+"""JSON API: /api/posts?sub=cats&sort=top&t=week&after=t3_xxx&limit=50
+
+Serves data only — the UI is a separate Vite app in client/, which proxies
+/api here in development.
 
 Run:  python serve.py            (inside the venv — see README.md)
-      http://localhost:3000
 """
 
 import argparse
 import json
 import time
-from functools import partial
-from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
-from pathlib import Path
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
 from fetch_cats import SORTS, TIMED_SORTS, TIMES, collect
 
-PUBLIC = Path(__file__).resolve().parent.parent / "public"
 CACHE_TTL = 600  # seconds; override with --cache-ttl
 
 # (sub, limit, sort, window, after) -> (fetched_at, (posts, cursor)). Every part
@@ -35,27 +34,11 @@ def cached_collect(sub: str, limit: int, sort: str, window: str, after: str) -> 
     return result
 
 
-class Handler(SimpleHTTPRequestHandler):
+class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
-        path = urlparse(self.path).path
-        if path == "/api/posts":
+        if urlparse(self.path).path == "/api/posts":
             return self.serve_posts()
-        if path == "/favicon.ico":
-            # No icon to serve; 204 is quieter than a 404 on every page load.
-            self.send_response(204)
-            self.end_headers()
-            return
-        if path.startswith("/r/"):
-            # Client-side route: hand back the page and let app.js read the URL.
-            self.path = "/index.html"
-        return super().do_GET()
-
-    def end_headers(self):
-        # Dev server: never let the browser cache public/, or edits to app.js
-        # and styles.css won't show up on refresh. Listings are already cached
-        # server-side, so nothing here needs browser caching.
-        self.send_header("Cache-Control", "no-store")
-        super().end_headers()
+        self.send_error(404, "Not found", "This server only serves /api/posts.")
 
     def serve_posts(self):
         q = parse_qs(urlparse(self.path).query)
@@ -97,6 +80,8 @@ class Handler(SimpleHTTPRequestHandler):
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(payload)))
+        # Listings are cached server-side; let the client always ask.
+        self.send_header("Cache-Control", "no-store")
         self.end_headers()
         self.wfile.write(payload)
 
@@ -108,13 +93,6 @@ class Handler(SimpleHTTPRequestHandler):
         except ConnectionResetError:
             self.close_connection = True
 
-    def log_message(self, fmt, *args):
-        # Keep the log to API traffic. Note args[0] is only the request line for
-        # access logs — log_error() passes an HTTPStatus here, so coerce to str
-        # rather than assuming.
-        if args and "/api/" in str(args[0]):
-            super().log_message(fmt, *args)
-
 
 def main():
     global CACHE_TTL
@@ -125,9 +103,8 @@ def main():
     args = ap.parse_args()
     CACHE_TTL = args.cache_ttl
 
-    handler = partial(Handler, directory=str(PUBLIC))
-    print(f"redditview -> http://localhost:{args.port}  (cache {CACHE_TTL}s)")
-    ThreadingHTTPServer(("", args.port), handler).serve_forever()
+    print(f"redditview api -> http://localhost:{args.port}/api/posts  (cache {CACHE_TTL}s)")
+    ThreadingHTTPServer(("", args.port), Handler).serve_forever()
 
 
 if __name__ == "__main__":

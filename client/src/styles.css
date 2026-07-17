@@ -26,7 +26,7 @@ body {
   padding: 1.5rem;
   background: var(--bg);
   color: var(--text);
-  font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+  font: 16px/1.5 system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
 
 header {
@@ -105,10 +105,6 @@ select:hover {
 #status {
   color: var(--muted);
   margin: 0 0 1rem;
-}
-
-#status[hidden] {
-  display: none;
 }
 
 #grid {
@@ -253,11 +249,6 @@ footer {
   /* Delayed fade-in: a page served from cache resolves in ~60ms, and a spinner
      that flashes for one frame reads as jank. Below ~200ms nothing appears. */
   animation: fade-in 0.25s ease 0.2s both;
-}
-
-#loader[hidden],
-#end[hidden] {
-  display: none;
 }
 
 .spinner {

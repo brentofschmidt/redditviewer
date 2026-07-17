@@ -1,6 +1,12 @@
 # server
 
-Fetches image posts from a subreddit via Reddit's OAuth API.
+Fetches posts from a subreddit via Reddit's OAuth API and serves them as JSON.
+Data only — the UI lives in `client/` (Vite + React), which proxies `/api` here.
+
+```
+python serve.py     -> :3000  JSON API, nothing else
+cd client && npm start -> :3001  the app you actually open
+```
 
 ## Credentials (required, free, ~1 min)
 
@@ -33,8 +39,20 @@ pip install -r requirements.txt
 ## Usage
 
 ```
+python serve.py                       # API on :3000 (what the client needs)
+python serve.py --port 3100           # somewhere else
+python serve.py --cache-ttl 60        # tighter cache while developing
+```
+
+Listings are cached in memory for 10 minutes, keyed by
+`(sub, limit, sort, window, after)` — so each sort, time window and page caches
+independently. Only successes are cached; a failure retries next request.
+
+The fetcher also runs standalone:
+
+```
 python fetch_cats.py                  # /r/cats -> JSON on stdout
-python fetch_cats.py aww --limit 25
+python fetch_cats.py aww --limit 25 --sort top --time all
 python fetch_cats.py cats --out posts.json
 ```
 
