@@ -1,0 +1,13 @@
+{
+  "name": "redditview",
+  "version": "1.0.0",
+  "description": "Tiled view of image posts from a subreddit",
+  "scripts": {
+    "start": "npm run dev",
+    "dev": "cd server && .venv\\Scripts\\python.exe -m watchfiles --filter python \".venv\\Scripts\\python.exe serve.py\" .",
+    "serve": "cd server && .venv\\Scripts\\python.exe serve.py",
+    "fetch": "cd server && .venv\\Scripts\\python.exe fetch_cats.py",
+    "setup": "cd server && py -m venv .venv && .venv\\Scripts\\python.exe -m pip install -r requirements.txt"
+  },
+  "private": true
+}

@@ -1,0 +1,264 @@
+:root {
+  color-scheme: light dark;
+  --bg: #f6f7f8;
+  --card: #fff;
+  --text: #1a1a1b;
+  --muted: #7c7c7c;
+  --line: #e3e3e3;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0e1113;
+    --card: #181c1f;
+    --text: #e5e9ea;
+    --muted: #8ba2ad;
+    --line: #2a3236;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 1.5rem;
+  background: var(--bg);
+  color: var(--text);
+  font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+h1 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+form {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0.25rem 0.25rem 0.25rem 0.75rem;
+}
+
+.prefix {
+  color: var(--muted);
+}
+
+input {
+  border: 0;
+  outline: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  width: 18ch;
+}
+
+button {
+  border: 0;
+  border-radius: 999px;
+  padding: 0.35rem 0.9rem;
+  background: #d93a00;
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #b83100;
+}
+
+select {
+  appearance: none;
+  background: var(--card);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0.4rem 2rem 0.4rem 0.9rem;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  /* Chevron drawn inline so no external asset is needed. */
+  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
+    linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position: calc(100% - 1.05rem) 55%, calc(100% - 0.8rem) 55%;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+}
+
+select:hover {
+  border-color: var(--muted);
+}
+
+#status {
+  color: var(--muted);
+  margin: 0.5rem 0 1rem;
+}
+
+#grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  /* Fixed row height — every tile the same, regardless of the photo's shape. */
+  grid-auto-rows: 300px;
+  gap: 1rem;
+}
+
+.tile {
+  position: relative;
+  display: block;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+  text-decoration: none;
+  color: inherit;
+  /* Skip layout/paint entirely for tiles that are off screen. With hundreds of
+     tiles this is the difference between a smooth scroll and a stuttering one.
+     contain-intrinsic-size keeps a skipped tile's height reserved so the
+     scrollbar doesn't jump around as tiles enter and leave. */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 300px;
+}
+
+.tile img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  /* Fill the tile and crop the overflow, anchored on the middle of the photo —
+     which is where the cat usually is. */
+  object-fit: cover;
+  object-position: center;
+  background: var(--bg);
+}
+
+.caption {
+  position: absolute;
+  inset: auto 0 0 0;
+  padding: 2rem 0.7rem 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  background: linear-gradient(transparent, rgb(0 0 0 / 0.8));
+  color: #fff;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.tile:hover .caption,
+.tile:focus-visible .caption {
+  opacity: 1;
+}
+
+.caption .title {
+  font-size: 0.85rem;
+  line-height: 1.3;
+  /* Two lines max, then ellipsis. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.caption .meta {
+  font-size: 0.75rem;
+  opacity: 0.8;
+}
+
+/* Needs height: a zero-height element never intersects. */
+#sentinel {
+  height: 1px;
+}
+
+footer {
+  display: flex;
+  justify-content: center;
+  min-height: 4.5rem;
+  padding: 1.5rem 0 2.5rem;
+}
+
+#loader {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: var(--muted);
+  font-size: 0.875rem;
+  /* Delayed fade-in: a page served from cache resolves in ~60ms, and a spinner
+     that flashes for one frame reads as jank. Below ~200ms nothing appears. */
+  animation: fade-in 0.25s ease 0.2s both;
+}
+
+#loader[hidden],
+#end[hidden] {
+  display: none;
+}
+
+.spinner {
+  width: 15px;
+  height: 15px;
+  border: 2px solid var(--line);
+  border-top-color: var(--muted);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+#end {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+  animation: fade-in 0.4s ease both;
+  /* Hairline rules either side, so the end of the feed reads as a boundary. */
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+}
+
+#end::before,
+#end::after {
+  content: '';
+  width: 2.5rem;
+  height: 1px;
+  background: var(--line);
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation: none;
+    border-top-color: var(--line);
+    opacity: 0.6;
+  }
+
+  #loader,
+  #end {
+    animation: none;
+  }
+}

@@ -1,0 +1,13 @@
+requests>=2.32
+
+# Loads server/.env into os.environ — Python does not do this on its own.
+python-dotenv>=1.0
+
+# Restarts the server when a .py file changes (npm start / npm run dev).
+watchfiles>=0.24
+
+# This machine has a TLS-intercepting proxy whose root cert Python's OpenSSL
+# rejects ("Basic Constraints of CA cert not marked critical"). truststore
+# delegates verification to Windows, which accepts it. Without this, requests
+# to Reddit die at the TLS handshake.
+truststore>=0.10
