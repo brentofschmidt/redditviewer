@@ -13,9 +13,16 @@ export async function fetchPosts(
   const params = new URLSearchParams({ sub, sort, t: time, limit: String(PAGE_SIZE) })
   if (after) params.set('after', after)
 
-  const res = await fetch(`/api/posts?${params}`, { signal })
-  const body = await res.json()
+  let res: Response
+  try {
+    res = await fetch(`/api/posts?${params}`, { signal })
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError') throw err
+    throw new Error('Could not reach the server.')
+  }
+
+  const body = await res.json().catch(() => ({}))
   // The server reports its own problems in `error` — prefer that to a bare status.
-  if (!res.ok) throw new Error(body?.error ?? res.statusText)
+  if (!res.ok) throw new Error(body?.error ?? `Request failed (${res.status}).`)
   return body as PostsResponse
 }

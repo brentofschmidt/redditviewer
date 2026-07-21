@@ -17,6 +17,7 @@ import argparse
 import datetime as dt
 import json
 import os
+import re
 import sys
 
 # Must precede requests' SSL setup: this machine has a TLS-intercepting proxy
@@ -86,6 +87,17 @@ def get_token(cid: str, secret: str) -> str:
     return res.json()["access_token"]
 
 
+# Reddit's `reason` codes -> a readable predicate. Unknown codes fall back to a
+# generic message that still names the raw reason.
+REASON_PHRASE = {
+    "banned": "has been banned",
+    "private": "is private",
+    "quarantined": "is quarantined",
+    "gold_only": "is for Reddit Premium members only",
+    "gated": "is gated (age or community restricted)",
+}
+
+
 def get_listing(
     token: str, sub: str, sort: str = "new", time: str = "day", after: str | None = None
 ) -> tuple[list[dict], str | None]:
@@ -103,8 +115,22 @@ def get_listing(
         headers={"User-Agent": USER_AGENT, "Authorization": f"bearer {token}"},
         timeout=20,
     )
-    if res.status_code == 404:
-        raise SystemExit(f"No such subreddit: /r/{sub}")
+
+    # Reddit signals an unreachable subreddit with a 403/404 plus a `reason` in
+    # the body (banned, private, quarantined, ...). A bare 404 with no reason is
+    # just a subreddit that doesn't exist.
+    if res.status_code in (403, 404):
+        reason = None
+        try:
+            reason = res.json().get("reason")
+        except ValueError:
+            pass
+        if reason:
+            raise SystemExit(f"/r/{sub} {REASON_PHRASE.get(reason, f'is unavailable ({reason})')}.")
+        if res.status_code == 404:
+            raise SystemExit(f"No such subreddit: /r/{sub}")
+        raise SystemExit(f"/r/{sub} is not accessible.")
+
     res.raise_for_status()
 
     data = res.json()["data"]
@@ -159,6 +185,38 @@ def image_url(post: dict) -> str | None:
     return url if url.lower().endswith(IMAGE_EXTS) else None
 
 
+def preview_mp4(post: dict) -> str | None:
+    """A small looping mp4 for an animated (gif) post, else None.
+
+    Reddit transcodes gifs to H.264 under preview.images[].variants.mp4, sized to
+    the same widths as the still resolutions — so a ~640px clip is a fraction of
+    the original gif's weight, ideal for a hover preview.
+    """
+    if post.get("is_gallery"):
+        return None
+    images = (post.get("preview") or {}).get("images") or []
+    if not images:
+        return None
+    mp4 = (images[0].get("variants") or {}).get("mp4") or {}
+    sized = _smallest_over([(r["width"], r["url"]) for r in mp4.get("resolutions", []) if r.get("url")])
+    if sized:
+        return sized
+    source = mp4.get("source") or {}
+    return source.get("url")
+
+
+# RedGifs links carry the clip id in the path (/watch/<id> or /ifr/<id>). Reddit
+# only hands us a still thumbnail for these, so we build the player embed URL and
+# let the client mount it on hover.
+REDGIFS_RE = re.compile(r"(?:www\.)?redgifs\.com/(?:watch|ifr)/([A-Za-z0-9]+)", re.IGNORECASE)
+
+
+def redgif_embed(post: dict) -> str | None:
+    url = post.get("url_overridden_by_dest") or post.get("url") or ""
+    match = REDGIFS_RE.search(url)
+    return f"https://www.redgifs.com/ifr/{match.group(1)}" if match else None
+
+
 # A tile only has room for a few lines; no point shipping a 10k-word post.
 TEXT_PREVIEW_CHARS = 400
 
@@ -175,6 +233,10 @@ def clean(post: dict, img: str | None) -> dict:
         ).isoformat(),
         "permalink": f"https://www.reddit.com{post['permalink']}",
         "image": img,
+        # Animated posts also carry a lightweight mp4 for hover playback.
+        "video": preview_mp4(post),
+        # RedGifs posts embed their own player instead.
+        "redgif": redgif_embed(post),
         "text": (post.get("selftext") or "").strip()[:TEXT_PREVIEW_CHARS],
         "domain": post.get("domain"),
         "is_self": post.get("is_self", False),

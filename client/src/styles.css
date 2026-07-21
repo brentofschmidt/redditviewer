@@ -21,62 +21,99 @@
   box-sizing: border-box;
 }
 
+/* Always reserve the scrollbar so the page doesn't jump sideways when content
+   grows past one screen after loading. */
+html {
+  overflow-y: scroll;
+}
+
 body {
   margin: 0;
-  padding: 1.5rem;
   background: var(--bg);
   color: var(--text);
   font: 16px/1.5 system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
 
-header {
+/* Cap the width and centre it, so the grid doesn't stretch edge-to-edge on
+   wide monitors. */
+.app {
+  max-width: 1320px;
+  margin: 0 auto;
+  /* Less top padding — the navbar already provides separation. */
+  padding: 0.85rem 1.5rem 1.5rem;
+}
+
+/* Full-width sticky bar; its contents are re-constrained by .navbar-inner.
+   Always black with light contents, regardless of the page's light/dark theme. */
+.navbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: #000;
+  color: #e8e8e8;
+}
+
+.navbar-inner {
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 0.5rem 1.5rem;
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   gap: 1rem;
-  margin-bottom: 1rem;
 }
 
-h1 {
-  margin: 0;
-  font-size: 1.25rem;
+.brand {
+  flex: none;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: #fff;
+  text-decoration: none;
 }
 
-form {
+.brand:hover {
+  color: #d93a00;
+}
+
+/* Search fills the middle and is capped/centred, like a real nav search box.
+   Submits on Enter — no button. */
+.search {
+  flex: 1;
+  max-width: 560px;
+  margin: 0 auto;
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  padding: 0.25rem 0.25rem 0.25rem 0.75rem;
+  gap: 0.4rem;
+  background: #131316;
+  border: 1px solid #2a2a2e;
+  border-radius: 8px;
+  padding: 0.4rem 0.7rem;
+}
+
+.search:focus-within {
+  border-color: #45454b;
 }
 
 .prefix {
-  color: var(--muted);
+  color: #6b6b70;
+  font-size: 0.85rem;
 }
 
 input {
+  flex: 1;
+  min-width: 0;
   border: 0;
   outline: 0;
   background: none;
   color: inherit;
   font: inherit;
-  width: 18ch;
+  font-size: 0.85rem;
 }
 
-button {
-  border: 0;
-  border-radius: 999px;
-  padding: 0.35rem 0.9rem;
-  background: #d93a00;
-  color: #fff;
-  font: inherit;
-  cursor: pointer;
-}
-
-button:hover {
-  background: #b83100;
+.filters {
+  flex: none;
+  display: flex;
+  gap: 0.5rem;
 }
 
 select {
@@ -84,11 +121,11 @@ select {
   background: var(--card);
   color: var(--text);
   border: 1px solid var(--line);
-  border-radius: 999px;
-  padding: 0.4rem 2rem 0.4rem 0.9rem;
+  border-radius: 8px;
+  padding: 0.4rem 1.8rem 0.4rem 0.7rem;
   font: inherit;
-  font-size: 0.9rem;
-  font-weight: 600;
+  font-size: 0.85rem;
+  font-weight: 500;
   cursor: pointer;
   /* Chevron drawn inline so no external asset is needed. */
   background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
@@ -100,6 +137,21 @@ select {
 
 select:hover {
   border-color: var(--muted);
+}
+
+/* Selects live only in the black navbar — dark fill, and color-scheme: dark so
+   the native option dropdown is dark too. */
+/* background-color, not the `background` shorthand — the shorthand would reset
+   background-image and wipe out the chevron drawn by the base select rule. */
+.navbar select {
+  background-color: #131316;
+  color: #e8e8e8;
+  border-color: #2a2a2e;
+  color-scheme: dark;
+}
+
+.navbar select:hover {
+  border-color: #45454b;
 }
 
 #status {
@@ -120,7 +172,6 @@ select:hover {
   display: block;
   background: var(--card);
   border: 1px solid var(--line);
-  border-radius: 10px;
   overflow: hidden;
   text-decoration: none;
   color: inherit;
@@ -141,6 +192,46 @@ select:hover {
   object-fit: cover;
   object-position: center;
   background: var(--bg);
+}
+
+/* The mp4 sits over the still and fades in on hover; the still shows until then
+   and stays as the poster if the clip is still buffering. */
+.tile .preview {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0; /* iframes carry a default border */
+  object-fit: cover; /* ignored by the iframe, applies to the <video> */
+  object-position: center;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  pointer-events: none;
+}
+
+.tile:hover .preview {
+  opacity: 1;
+}
+
+/* Marks a tile as animated, so hover-to-play is discoverable (and visible on
+   touch, where there's no hover). Hidden while the clip plays. */
+.badge {
+  position: absolute;
+  top: 0.45rem;
+  left: 0.45rem;
+  padding: 0.08rem 0.35rem;
+  border-radius: 4px;
+  background: rgb(0 0 0 / 0.65);
+  color: #fff;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
+.tile:hover .badge {
+  opacity: 0;
 }
 
 .caption {
@@ -307,5 +398,69 @@ footer {
   #loader,
   #end {
     animation: none;
+  }
+}
+
+/* Responsive overrides live at the end so they always follow the base rules
+   they override — otherwise an equal-specificity base rule declared later
+   (e.g. #grid) would win even when the media query matches. */
+
+/* Phones: brand + search share the top row; the filters wrap to their own
+   full-width row below. 576px is the standard phone breakpoint. */
+@media (max-width: 576px) {
+  body {
+    font-size: 15px;
+  }
+
+  .app {
+    padding: 0.6rem 1rem 1rem;
+  }
+
+  .navbar-inner {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+  }
+
+  /* Search fills the rest of the top row next to the brand. */
+  .search {
+    max-width: none;
+    margin: 0;
+  }
+
+  /* Sort and time drop to their own full-width row and split it evenly. */
+  .filters {
+    flex-basis: 100%;
+  }
+
+  .filters select {
+    flex: 1;
+    min-width: 0;
+  }
+
+  #grid {
+    /* Fixed two-up with a 0 minimum, so tiles shrink to the screen instead of
+       a fixed floor forcing a single column or overflow on narrow phones. */
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-auto-rows: 200px;
+    gap: 0.5rem;
+  }
+}
+
+/* Small phones: two columns get too cramped to see, so go single-column and
+   give the now-full-width tile more height. */
+@media (max-width: 480px) {
+  #grid {
+    grid-template-columns: minmax(0, 1fr);
+    grid-auto-rows: 280px;
+  }
+}
+
+/* Really narrow phones: the sort and time selects can't shrink below the width
+   of their longest option ("Controversial"), so paired they overflow the
+   viewport. Give each its own row. */
+@media (max-width: 360px) {
+  .filters {
+    flex-direction: column;
   }
 }

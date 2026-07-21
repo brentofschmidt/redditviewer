@@ -12,6 +12,10 @@ export type Post = {
   permalink: string
   /** Display-sized preview, or null for text posts. */
   image: string | null
+  /** Lightweight mp4 for hover playback on animated (gif) posts, else null. */
+  video: string | null
+  /** RedGifs player embed URL, mounted on hover, else null. */
+  redgif: string | null
   /** Self-post body, truncated server-side. Empty for link posts. */
   text: string
   domain: string | null

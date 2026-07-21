@@ -46,15 +46,15 @@ export const TIME_OPTION_LABEL: Record<TimeWindow, string> = {
 export const MAX_EMPTY_PAGES = 2
 
 // How far ahead to work, in viewport-heights. Percentages rather than pixels so
-// the lead time is the same on a laptop and a tall monitor. Generous because
-// previews are ~640px (tens of KB), and listings are cached server-side — so
-// running ahead is cheap, and a tile that isn't decoded when it arrives is the
-// thing that actually reads as slow.
+// the lead time is the same on a laptop and a tall monitor.
+//
+// Images run generously ahead — previews are ~640px (tens of KB) and cached, so
+// a tile that isn't decoded when it scrolls in is the thing that reads as slow.
 export const IMAGE_LEAD = '150% 0px 300% 0px' // 1.5 screens up, 3 down
-export const PAGE_LEAD = '0px 0px 400% 0px' // start the next fetch 4 screens early
-
-/** Mirrors PAGE_LEAD, for the manual re-check when the observer won't re-fire. */
-export const PAGE_LEAD_SCREENS = 5
+// The page fetch runs a moderate 2 screens ahead. It must stay *smaller* than a
+// full page of content, or the sentinel sits inside the margin after page one
+// and the feed eagerly chain-loads several pages before the user ever scrolls.
+export const PAGE_LEAD = '0px 0px 200% 0px'
 
 export function isSort(value: string | undefined): value is Sort {
   return !!value && (SORTS as string[]).includes(value)
